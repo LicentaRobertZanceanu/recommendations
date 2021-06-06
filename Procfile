@@ -1,2 +1,2 @@
-web: gunicorn wsgi:app
+web: uwsgi uwsgi.ini
 
