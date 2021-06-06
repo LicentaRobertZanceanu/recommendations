@@ -11,9 +11,12 @@ from nlp_recommendations import get_user_recommendations
 app = Flask(__name__)
 app.wsgi_app = CheckAuth(app.wsgi_app)
 
+app.config['DEBUG'] = True
+
 
 def save_to_csv_from_url(url, csv_name):
     csvResponse = requests.get(url)
+    print(csvResponse)
     csvResponseContent = csvResponse.content.decode('utf-8')
     with open(csv_name, 'wb') as file:
         for line in csvResponseContent:
@@ -24,6 +27,7 @@ def save_to_csv_from_url(url, csv_name):
 
 
 def load_and_prepare_data():
+    print('a intrat load')
     save_to_csv_from_url('https://smartmusic-licenta-bucket.s3.amazonaws.com/songs.csv',
                          'songs.csv')
     save_to_csv_from_url('https://smartmusic-licenta-bucket.s3.amazonaws.com/liked.csv',
@@ -32,17 +36,20 @@ def load_and_prepare_data():
                          'listened.csv')
     prepare_data()
     print('cron finished')
+
     return
 
 
 @app.route('/recommendations', methods=['GET'])
 def get_recommendations():
+    print('a intrat')
     load_and_prepare_data()
     result = get_user_recommendations(request.environ['user']['id'])
     print(jsonify(result))
     return jsonify(result)
 
-app.run()
+
+app.run(debug=True)
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(
