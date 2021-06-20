@@ -4,6 +4,7 @@ import nltk
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import json
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -11,6 +12,14 @@ nltk.download('wordnet')
 nltk.download('averaged_perceptron_tagger')
 
 stop_words_ = set(nltk.corpus.stopwords.words('english'))
+
+
+def isnan(value):
+    try:
+        import math
+        return math.isnan(float(value))
+    except:
+        return False
 
 
 def black_txt(token):
@@ -26,6 +35,34 @@ def clean_text(text):
                   for word in nltk.word_tokenize(text.lower()) if black_txt(word)]
     clean_text2 = [word for word in clean_text if black_txt(word)]
     return " ".join(clean_text2)
+
+
+def generate_final_result(df_result, df_songs_original):
+    final_result = []
+    for index in range(len(df_result)):
+        song_df = df_songs_original.loc[df_songs_original['_id'] ==
+                                        df_result.iloc[index]['songId']]
+        song_df = song_df.reset_index(drop=True)
+        song_dict = {
+            "_id": song_df['_id'].values[0],
+            "name": song_df['name'].values[0],
+            "genre": {
+                '_id': song_df['genre._id'].values[0],
+                'name': song_df['genre.name'].values[0]
+            },
+            "artist": {
+                '_id': song_df['artist._id'].values[0],
+                'name': song_df['artist.name'].values[0]
+            },
+            "image": song_df['image'].values[0] or ''
+        }
+
+        if isnan(song_dict["image"]):
+            song_dict["image"] = 'https://www.shutterstock.com/image-vector/music-notes-song-melody-tune-flat-701307613'
+
+        songs_json = json.dumps(song_dict, indent=4)
+        final_result.append(songs_json)
+    return final_result
 
 
 def get_user_recommendations(user_id):
@@ -69,7 +106,6 @@ def get_user_recommendations(user_id):
     df_history["text"] = df_history["text"].map(str).apply(clean_text)
     df_history["text"] = df_history["text"].str.lower()
     df_history = df_history[["userId", "text"]]
-
     tfidf_vectorizer = TfidfVectorizer()
     tfidf_songs = tfidf_vectorizer.fit_transform(df_songs['text'])
 
@@ -78,8 +114,14 @@ def get_user_recommendations(user_id):
 
     user = df_history.loc[df_history["userId"] == user_id]
 
+    if user.empty:
+        final_result = generate_final_result(
+            songsCsv.head(50), df_songs_original)
+        return final_result
+
     user_tfidf = tfidf_vectorizer.transform(user['text'])
     user_count = count_vectorizer.transform(user['text'])
+
     cos_similarity_tfidf = map(
         lambda x: cosine_similarity(user_tfidf, x), tfidf_songs)
     cos_similarity_countv = map(
@@ -107,24 +149,5 @@ def get_user_recommendations(user_id):
         df_result = df_final_tfidf
     df_result = df_result.head(50)
 
-    final_result = []
-    for index in range(len(df_result)):
-        song_df = df_songs_original.loc[df_songs_original['_id'] ==
-                                        df_result.iloc[index]['songId']]
-        song_df = song_df.reset_index(drop=True)
-        song_dict = {
-            "_id": song_df['_id'].values[0],
-            "name": song_df['name'].values[0],
-            "genre": {
-                '_id': song_df['genre._id'].values[0],
-                'name': song_df['genre.name'].values[0]
-            },
-            "artist": {
-                '_id': song_df['artist._id'].values[0],
-                'name': song_df['artist.name'].values[0]
-            },
-            "image": song_df['image'].values[0]
-        }
-        final_result.append(song_dict)
-
+    final_result = generate_final_result(df_result, df_songs_original)
     return final_result

@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 import requests
-from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+from flask_cors import CORS
+import json
 
 from check_authentication import CheckAuth
 from prepare_data import prepare_data
@@ -11,7 +12,7 @@ from nlp_recommendations import get_user_recommendations
 app = Flask(__name__)
 app.wsgi_app = CheckAuth(app.wsgi_app)
 
-app.config['DEBUG'] = True
+CORS(app)
 
 
 def save_to_csv_from_url(url, csv_name):
@@ -40,12 +41,23 @@ def load_and_prepare_data():
     return
 
 
+@app.route("/recommendations", methods=["OPTIONS"])
+def api_create_order():
+    return build_cors_prelight_response()
+
+
+def build_cors_prelight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
+
+
 @app.route('/recommendations', methods=['GET'])
 def get_recommendations():
-    print('a intrat')
-    load_and_prepare_data()
     result = get_user_recommendations(request.environ['user']['id'])
-    print(jsonify(result))
+
     return jsonify(result)
 
 

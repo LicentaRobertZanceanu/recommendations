@@ -13,8 +13,10 @@ class CheckAuth():
         self.userId = ''
 
     def __call__(self, environ, start_response):
-        # not Flask request - from werkzeug.wrappers import Request
         request = Request(environ)
+        if request.method == 'OPTIONS':
+            return self.app(environ, start_response)
+        
         auth_token = request.headers['Authorization']
         request_headers = {"Authorization": auth_token}
 
